@@ -1,22 +1,20 @@
 """An OpenAI Gym environment for Super Mario Bros. and Lost Levels."""
 from collections import defaultdict
-from nes_py import NESEnv
+
 import numpy as np
+from nes_py import NESEnv
+
 from ._roms import decode_target
 from ._roms import rom_path
 
-
 # create a dictionary mapping value of status register to string names
-_STATUS_MAP = defaultdict(lambda: 'fireball', {0:'small', 1: 'tall'})
-
+_STATUS_MAP = defaultdict(lambda: 'fireball', {0: 'small', 1: 'tall'})
 
 # a set of state values indicating that Mario is "busy"
 _BUSY_STATES = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x07]
 
-
 # RAM addresses for enemy types on the screen
 _ENEMY_TYPE_ADDRESSES = [0x0016, 0x0017, 0x0018, 0x0019, 0x001A]
-
 
 # enemies whose context indicate that a stage change will occur (opposed to an
 # enemy that implies a stage change wont occur -- i.e., a vine)
@@ -31,7 +29,7 @@ class SuperMarioBrosEnv(NESEnv):
     # the legal range of rewards for each step
     reward_range = (-15, 15)
 
-    def __init__(self, rom_mode='vanilla', lost_levels=False, target=None):
+    def __init__(self, rom_mode='vanilla', lost_levels=False, target=None, stages=None):
         """
         Initialize a new Super Mario Bros environment.
 
@@ -211,24 +209,24 @@ class SuperMarioBrosEnv(NESEnv):
         return self._player_state == 0x0b or self._y_viewport > 1
 
     @property
-    def _is_dead(self):
+    def _is_dead(self) -> bool:
         """Return True if Mario is dead, False otherwise."""
         return self._player_state == 0x06
 
     @property
-    def _is_game_over(self):
+    def _is_game_over(self) -> bool:
         """Return True if the game has ended, False otherwise."""
         # the life counter will get set to 255 (0xff) when there are no lives
         # left. It goes 2, 1, 0 for the 3 lives of the game
         return self._life == 0xff
 
     @property
-    def _is_busy(self):
+    def _is_busy(self) -> bool:
         """Return boolean whether Mario is busy with in-game garbage."""
         return self._player_state in _BUSY_STATES
 
     @property
-    def _is_world_over(self):
+    def _is_world_over(self) -> bool:
         """Return a boolean determining if the world is over."""
         # 0x0770 contains GamePlay mode:
         # 0 => Demo
@@ -237,7 +235,7 @@ class SuperMarioBrosEnv(NESEnv):
         return self.ram[0x0770] == 2
 
     @property
-    def _is_stage_over(self):
+    def _is_stage_over(self) -> bool:
         """Return a boolean determining if the level is over."""
         # iterate over the memory addresses that hold enemy types
         for address in _ENEMY_TYPE_ADDRESSES:
@@ -251,7 +249,7 @@ class SuperMarioBrosEnv(NESEnv):
         return False
 
     @property
-    def _flag_get(self):
+    def _flag_get(self) -> bool:
         """Return a boolean determining if the agent reached a flag."""
         return self._is_world_over or self._is_stage_over
 
@@ -270,7 +268,7 @@ class SuperMarioBrosEnv(NESEnv):
     def _skip_change_area(self):
         """Skip change area animations by by running down timers."""
         change_area_timer = self.ram[0x06DE]
-        if change_area_timer > 1 and change_area_timer < 255:
+        if 1 < change_area_timer < 255:
             self.ram[0x06DE] = 1
 
     def _skip_occupied_states(self):
@@ -396,25 +394,31 @@ class SuperMarioBrosEnv(NESEnv):
         """Return the reward after a step occurs."""
         return self._x_reward + self._time_penalty + self._death_penalty
 
-    def _get_done(self):
+    def _get_done(self) -> bool:
         """Return True if the episode is over, False otherwise."""
         if self.is_single_stage_env:
             return self._is_dying or self._is_dead or self._flag_get
         return self._is_game_over
 
+    @property
+    def get_info(self):
+        """Return the info after a step occurs, required for new API
+         Added Mus """
+        return self._get_info()
+
     def _get_info(self):
         """Return the info after a step occurs"""
         return dict(
-            coins=self._coins,
-            flag_get=self._flag_get,
-            life=self._life,
-            score=self._score,
-            stage=self._stage,
-            status=self._player_status,
-            time=self._time,
-            world=self._world,
-            x_pos=self._x_position,
-            y_pos=self._y_position,
+                coins=self._coins,
+                flag_get=self._flag_get,
+                life=self._life,
+                score=self._score,
+                stage=self._stage,
+                status=self._player_status,
+                time=self._time,
+                world=self._world,
+                x_pos=self._x_position,
+                y_pos=self._y_position,
         )
 
 

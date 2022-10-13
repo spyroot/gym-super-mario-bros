@@ -1,11 +1,19 @@
 """An OpenAI Gym Super Mario Bros. environment that randomly selects levels."""
+from typing import List, Tuple, Optional
+from typing import Union
+
 import gym
 import numpy as np
+from gym.core import ObsType, RenderFrame
+from numpy.random import RandomState
+
 from .smb_env import SuperMarioBrosEnv
 
 
 class SuperMarioBrosRandomStagesEnv(gym.Env):
     """A Super Mario Bros. environment that randomly selects levels."""
+
+    np_random: RandomState
 
     # relevant meta-data about the environment
     metadata = SuperMarioBrosEnv.metadata
@@ -32,9 +40,10 @@ class SuperMarioBrosRandomStagesEnv(gym.Env):
 
         """
         # create a dedicated random number generator for the environment
-        self.np_random = np.random.RandomState()
+        self.np_random  = np.random.RandomState()
         # setup the environments
         self.envs = []
+
         # iterate over the worlds in the game, i.e., {1, ..., 8}
         for world in range(1, 9):
             # append a new list to put this world's stages into
@@ -48,7 +57,7 @@ class SuperMarioBrosRandomStagesEnv(gym.Env):
                 # add the environment to the stage list for this world
                 self.envs[-1].append(env)
         # create a placeholder for the current environment
-        self.env = self.envs[0][0]
+        self.env: SuperMarioBrosEnv = self.envs[0][0]
         # create a placeholder for the image viewer to render the screen
         self.viewer = None
         # create a placeholder for the subset of stages to choose
@@ -79,7 +88,9 @@ class SuperMarioBrosRandomStagesEnv(gym.Env):
         # return the list of seeds used by RNG(s) in the environment
         return [seed]
 
-    def reset(self, seed=None, options=None, return_info=None):
+    def reset(self, *,
+              seed: Optional[int] = None,
+              options: Optional[dict] = None) -> Tuple[ObsType, dict]:
         """
         Reset the state of the environment and returns an initial observation.
 
@@ -88,14 +99,13 @@ class SuperMarioBrosRandomStagesEnv(gym.Env):
             options (dict): An optional options for resetting the environment.
                 Can include the key 'stages' to override the random set of
                 stages to sample from.
-            return_info (any): unused
-
         Returns:
             state (np.ndarray): next frame as a result of the given action
 
         """
         # Seed the RNG for this environment.
         self.seed(seed)
+
         # Get the collection of stages to sample from
         stages = self.stages
         if options is not None and 'stages' in options:
@@ -112,13 +122,9 @@ class SuperMarioBrosRandomStagesEnv(gym.Env):
         # Set the environment based on the world and stage.
         self.env = self.envs[world][stage]
         # reset the environment
-        return self.env.reset(
-            seed=seed,
-            options=options,
-            return_info=return_info
-        )
+        return self.env.reset(seed=seed, options=options)
 
-    def step(self, action):
+    def step(self, action) -> Tuple[ObsType, float, bool, bool, dict]:
         """
         Run one frame of the NES and return the relevant observation data.
 
@@ -130,6 +136,7 @@ class SuperMarioBrosRandomStagesEnv(gym.Env):
             - state (np.ndarray): next frame as a result of the given action
             - reward (float) : amount of reward returned after given action
             - done (boolean): whether the episode has ended
+            - truncated (boolean): whethere @TODO
             - info (dict): contains auxiliary diagnostic information
 
         """
@@ -152,7 +159,7 @@ class SuperMarioBrosRandomStagesEnv(gym.Env):
         if self.viewer is not None:
             self.viewer.close()
 
-    def render(self, mode='human'):
+    def render(self, mode='human') -> Optional[Union[RenderFrame, List[RenderFrame]]]:
         """
         Render the environment.
 
